@@ -81,7 +81,7 @@ fn main() {
             }
             "update" => todo!("update"),
             c @ _ => {
-                error!("Unkown command {c}, use sync or update");
+                error!("Unkown command {c}, use 'sync' or 'update'");
                 exit(1);
             }
         }

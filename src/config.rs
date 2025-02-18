@@ -20,12 +20,14 @@ pub struct ScratchPackage {
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum Packages {
-    /// Basic representation for system and specific package mangers
+    /// packages that can be installed by their names
     Packages(Vec<String>),
+    /// packages that have to be made from scratch via commands
     ScratchPackages(Vec<ScratchPackage>),
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+/// the MEHR2 struct in the mehr2.lua file
 pub struct Config {
     pub packages: HashMap<String, Packages>,
 }
