@@ -1,17 +1,18 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fs, path::PathBuf};
 
+use log::trace;
+use mlua::LuaSerdeExt;
 use mlua::UserData;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ScratchPackage {
     pub identifier: String,
-    /// execute scratch building if any of the members is found as a executable on the system
+    /// execute scratch building if any of the vector members is found as a executable on the system
     pub executes_for: Option<Vec<String>>,
-    /// the package requires all members to exist for it to build
+    /// the package requires all members to be executables on the system for it to build
     pub needs: Option<Vec<String>>,
-    /// command to update said package
-    pub update: Option<String>,
+    /// bash script to execute when installing and updating packages
     pub script: Option<String>,
     /// git url to use for cloning
     pub git: Option<String>,
@@ -30,6 +31,40 @@ pub enum Packages {
 /// the MEHR2 struct in the mehr2.lua file
 pub struct Config {
     pub packages: HashMap<String, Packages>,
+}
+
+impl Config {
+    pub fn from_path_buf(lua: &mlua::Lua, path: PathBuf) -> Result<Self, String> {
+        let path_clone = path.clone();
+        let path_as_str = path_clone.to_str().unwrap_or_else(|| "invalid utf8");
+        trace!("loading configuration");
+        let config_as_str = fs::read_to_string(path).map_err(|err| {
+            format!(
+                "Failed to read configuration file '{}': {}",
+                path_as_str, err
+            )
+        })?;
+
+        lua.load(config_as_str)
+            .set_name(path_as_str.to_string())
+            .exec()
+            .map_err(|err| format!("{}: {}", path_as_str, err))?;
+
+        let raw_conf = lua
+            .globals()
+            .get::<mlua::Value>("MEHR2")
+            .map_err(|err| format!("{}: {}", path_as_str, err))?;
+
+        if raw_conf.is_nil() {
+            return Err(format!(
+                "{}: MEHR2 table is missing from configuration",
+                path_as_str
+            ));
+        }
+
+        lua.from_value(raw_conf)
+            .map_err(|err| format!("{}: {}", path_as_str, err))
+    }
 }
 
 impl UserData for Config {}

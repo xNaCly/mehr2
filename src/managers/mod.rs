@@ -5,7 +5,10 @@ mod pacman;
 
 use log::warn;
 
-use crate::config::{self, Packages};
+use crate::{
+    config::{self, Packages},
+    lock,
+};
 
 pub fn process_packages(config: config::Config) -> Result<()> {
     if let Some(default_packages) = config.packages.get("default") {
