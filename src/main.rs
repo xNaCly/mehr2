@@ -3,6 +3,8 @@ use std::{
     process::exit,
 };
 
+use clap::Parser;
+
 use config::Config;
 use lock::Lock;
 use log::{error, info, trace, warn, LevelFilter};
@@ -17,7 +19,26 @@ mod managers;
 /// path deals with looking up executables and file paths
 mod path;
 
+#[derive(Debug, PartialEq, Clone, clap::ValueEnum)]
+enum Command {
+    /// sync local state to remove state
+    Sync,
+    /// sync repositories to remote state, update locally installed packages to latest available
+    /// versions
+    Update,
+    /// restore all changes made by mehr2
+    Clean,
+}
+
+/// Operating system-independent package managment abstraction
+#[derive(clap::Parser, Debug)]
+struct Args {
+    #[clap(value_enum)]
+    cmd: Command,
+}
+
 fn main() {
+    let args = Args::parse();
     colog::basic_builder()
         .filter(None, LevelFilter::max())
         .init();
@@ -38,15 +59,8 @@ fn main() {
     };
 
     let lock: Option<Lock> = (&lock_path).try_into().inspect_err(|e| warn!("{e}")).ok();
-    let command = match env::args().nth(1) {
-        Some(command) => command,
-        None => {
-            info!("Got no command, defaulting to sync");
-            "sync".to_string()
-        }
-    };
-    match command.as_str() {
-        "sync" => {
+    match args.cmd {
+        Command::Sync => {
             if let Err(err) = process_packages(config) {
                 error!("{err}");
                 exit(1);
@@ -58,9 +72,12 @@ fn main() {
                 });
             }
         }
-        "update" => todo!("update"),
+        Command::Update => todo!("update"),
         c @ _ => {
-            error!("Unkown command {c}, use 'sync' or 'update'");
+            error!(
+                "Unimplemented command '{:?}', use 'sync', 'update' or clean",
+                c
+            );
             exit(1);
         }
     }
