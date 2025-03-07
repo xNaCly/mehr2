@@ -3,14 +3,13 @@ use std::process::Command;
 use super::PackageManager;
 
 #[derive(Debug)]
-pub struct Npm;
+pub struct Apt;
 
-impl PackageManager for Npm {
+impl PackageManager for Apt {
     fn upgrade(&self, packages: &[super::Package]) -> anyhow::Result<()> {
         Ok(Command::new("sudo")
-            .arg("npm")
-            .arg("-g")
-            .arg("update")
+            .arg("apt")
+            .arg("upgrade")
             .args(packages)
             .status()
             .map(|_| {})?)
@@ -18,8 +17,7 @@ impl PackageManager for Npm {
 
     fn install(&self, packages: &[super::Package]) -> anyhow::Result<()> {
         Ok(Command::new("sudo")
-            .arg("npm")
-            .arg("-g")
+            .arg("apt")
             .arg("install")
             .args(packages)
             .status()
@@ -27,6 +25,10 @@ impl PackageManager for Npm {
     }
 
     fn update(&self) -> anyhow::Result<()> {
-        Ok(())
+        Ok(Command::new("sudo")
+            .arg("apt")
+            .arg("update")
+            .status()
+            .map(|_| {})?)
     }
 }

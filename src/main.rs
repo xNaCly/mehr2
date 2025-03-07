@@ -47,7 +47,7 @@ fn main() {
         .unwrap();
     let configuration_path = config_dir_path.join("mehr2.lua");
     trace!("using configuration file: {:?}", configuration_path);
-    let lock_path = config_dir_path.join("lock.mehr2");
+    let lock_path = config_dir_path.join("mehr2_lock.json");
     trace!("using lock file: {:?}", lock_path);
     let lua_ctx = mlua::Lua::new();
     let config = match Config::from_path_buf(&lua_ctx, configuration_path) {
@@ -60,25 +60,15 @@ fn main() {
 
     let lock: Option<Lock> = (&lock_path).try_into().inspect_err(|e| warn!("{e}")).ok();
     match args.cmd {
-        Command::Sync => {
-            if let Err(err) = process_packages(config) {
-                error!("{err}");
-                exit(1);
-            } else {
-                lock.inspect(|l| {
-                    if let Err(err) = l.dump(&lock_path) {
-                        warn!("{err}")
-                    }
-                });
+        Command::Sync => match process_packages(config, lock.unwrap_or_default()) {
+            Ok(lock) => {
+                if let Err(err) = lock.dump(&lock_path) {
+                    warn!("{err}")
+                }
             }
-        }
+            Err(err) => warn!("{err}"),
+        },
         Command::Update => todo!("update"),
-        c @ _ => {
-            error!(
-                "Unimplemented command '{:?}', use 'sync', 'update' or clean",
-                c
-            );
-            exit(1);
-        }
+        Command::Clean => todo!("clean"),
     }
 }

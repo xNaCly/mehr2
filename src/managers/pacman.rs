@@ -2,11 +2,13 @@ use std::process::Command;
 
 use super::PackageManager;
 
+#[derive(Debug)]
 pub struct Pacman;
 
 impl PackageManager for Pacman {
     fn upgrade(&self, packages: &[super::Package]) -> anyhow::Result<()> {
-        Ok(Command::new("pacman")
+        Ok(Command::new("sudo")
+            .arg("pacman")
             .arg("-S")
             .args(packages)
             .status()
@@ -18,6 +20,10 @@ impl PackageManager for Pacman {
     }
 
     fn update(&self) -> anyhow::Result<()> {
-        Ok(Command::new("pacman").arg("-Sy").status().map(|_| {})?)
+        Ok(Command::new("sudo")
+            .arg("pacman")
+            .arg("-Sy")
+            .status()
+            .map(|_| {})?)
     }
 }

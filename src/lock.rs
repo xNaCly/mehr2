@@ -1,5 +1,9 @@
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fs::File, path::PathBuf};
+use std::{
+    collections::{HashMap, HashSet},
+    fs::{self, File},
+    path::PathBuf,
+};
 
 use crate::config::{
     Config,
@@ -7,9 +11,9 @@ use crate::config::{
 };
 
 /// Lock holds a map of installed packages, by their package manager, stored in lock.mehr2
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default, Debug)]
 pub struct Lock {
-    packages: HashMap<String, Vec<String>>,
+    pub packages: HashMap<String, Vec<String>>,
 }
 
 impl Lock {
@@ -17,24 +21,36 @@ impl Lock {
     pub fn dump(&self, path: &PathBuf) -> Result<(), String> {
         let file = File::options()
             .write(true)
+            .create(true)
             .open(path)
             .map_err(|err| format!("failed to open lockfile: {err}"))?;
-        Ok(serde_lexpr::to_writer(file, self)
+        Ok(serde_json::to_writer(file, self)
             .map_err(|err| format!("failed to serialize into lockfile: {err}"))
             .map(|_| ())?)
     }
 
     pub fn diff(&self, config: &Config) -> HashMap<String, Vec<String>> {
         let other: Lock = config.into();
-        todo!()
+        let mut store = HashMap::new();
+        for (key, other_packages) in other.packages {
+            let other: HashSet<_> = HashSet::from_iter(other_packages.iter());
+            if let Some(packages) = self.packages.get(&key) {
+                let diff = dbg!(other
+                    .difference(&HashSet::from_iter(packages.iter()))
+                    .map(|p| p.to_string())
+                    .collect());
+                store.insert(key, diff);
+            } else {
+                store.insert(key, other_packages);
+            }
+        }
+        dbg!(store)
     }
 }
 
 impl From<&Config> for Lock {
     fn from(value: &Config) -> Self {
-        let mut lock = Self {
-            packages: HashMap::new(),
-        };
+        let mut lock = Self::default();
         value.packages.iter().for_each(|(key, value)| {
             let package_names: Vec<String> = match value {
                 Packages(packages) => packages.clone(),
@@ -52,8 +68,9 @@ impl TryFrom<&PathBuf> for Lock {
     type Error = String;
 
     fn try_from(value: &PathBuf) -> Result<Self, Self::Error> {
-        let file = File::open(value).map_err(|err| format!("failed to open lock file: {err}"))?;
-        serde_lexpr::from_reader(file)
+        let lock_content =
+            fs::read_to_string(value).map_err(|err| format!("failed to open lock file: {err}"))?;
+        serde_json::from_str(&lock_content)
             .map_err(|err| format!("failed to deserialize lock file: {err}"))?
     }
 }
